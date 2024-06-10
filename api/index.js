@@ -11,6 +11,30 @@ app.use(express.json());
 app.use("/api/role", roleRouter);
 app.use("/api/auth", authRouter);
 
+//Response handeler
+app.use((obj, req, res, next) => {
+  const statusCode = obj.status || 500;
+  const message = obj.message || "Success!";
+  return res.status(statusCode).json({
+    success: [200, 201, 204].some((a) => a === obj.status) ? true : false,
+    status: statusCode,
+    message: message,
+    data: obj.data,
+  });
+});
+
+//Error handler
+app.use((err, req, res, next) => {
+  const statusCode = err.status || 500;
+  const errorMessage = err.message || "Something went wrong!";
+  return res.status(statusCode).json({
+    success: false,
+    status: statusCode,
+    message: errorMessage,
+    stack: err.stack,
+  });
+});
+
 const connectDB = async () => {
   try {
     await mongoose.connect(process.env.MONGO_URL);
