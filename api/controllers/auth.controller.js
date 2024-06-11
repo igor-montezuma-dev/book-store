@@ -1,8 +1,10 @@
-import bcrypt from "bcryptjs";
 import Role from "../models/role.js";
 import User from "../models/user.js";
 import { CreateError } from "../utils/error.js";
 import { CreateSuccess } from "../utils/success.js";
+
+import bcrypt from "bcryptjs";
+import jwt from "jsonwebtoken";
 
 export const register = async (req, res, next) => {
   const role = await Role.find({ role: "User" });
@@ -23,7 +25,12 @@ export const register = async (req, res, next) => {
 
 export const login = async (req, res, next) => {
   try {
-    const user = await User.findOne({ email: req.body.email });
+    const user = await User.findOne({ email: req.body.email }).populate(
+      "roles",
+      "role"
+    );
+
+    const { roles } = user;
     if (!user) {
       return next(CreateError(404, "User not found"));
     }
@@ -34,7 +41,26 @@ export const login = async (req, res, next) => {
     if (!isPasswordCorrect) {
       return next(CreateError(400, "Invalid credentials"));
     }
-    return next(CreateSuccess(200, "Login successful"));
+    const token = jwt.sign(
+      {
+        id: user._id,
+        isAdmin: user.isAdmin,
+        roles: roles,
+      },
+      process.env.JWT_SECRET,
+      { expiresIn: "1h" }
+    );
+    res
+      .cookie("access_token", token, {
+        httPOnly: true,
+      })
+      .status(200)
+      .json({
+        status: 200,
+        message: "Login successful",
+        data: user,
+      });
+    //return next(CreateSuccess(200, "Login successful"));
   } catch (error) {
     console.error(error);
   }
